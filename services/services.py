@@ -8,7 +8,8 @@ from configs.query_engine.owner_information_without_sunit import (
     owner_query_engine_without_sunit,
 )
 from libs.MissiveAPI import MissiveAPI
-from models import mi_wayne_detroit
+from models import mi_wayne_detroit, twilio_message
+from sqlalchemy.sql import text
 from templates.sms import get_rental_message, get_tax_message, sms_templates
 from utils.address_normalizer import get_first_valid_normalized_address
 
@@ -150,3 +151,16 @@ def extract_address_information(normalized_address):
         sunit = ""
 
     return address, sunit
+
+
+def extract_address_messages_from_supabase(phone):
+    session = Session()
+    messages = (
+        session.query(twilio_message)
+        .filter(twilio_message.from_field == phone)
+        .order_by(text("delivered_at desc"))
+        .limit(30)
+        .all()
+    )
+
+    return list(map(lambda a: a.preview, messages))

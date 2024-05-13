@@ -20,6 +20,7 @@ from exceptions import APIException
 from libs.MissiveAPI import MissiveAPI
 from services.services import (
     extract_address_information,
+    extract_address_messages_from_supabase,
     handle_match,
     process_statuses,
     search_service,
@@ -95,6 +96,12 @@ def yes():
         query_result = ""
 
         if not normalized_address:
+            extra_messages = extract_address_messages_from_supabase(to_phone)
+            normalized_address = extract_latest_address(
+                messages=extra_messages, conversation_id=conversation_id, to_phone=to_phone
+            )
+
+        if not normalized_address:
             logger.error("Couldn't parse address from history messages", messages)
             return (
                 jsonify({"message": "Couldn't parse address from history messages"}),
@@ -136,6 +143,13 @@ def more():
         if shared_label_ids and os.environ.get("MISSIVE_LOOKUP_TAG_ID") in shared_label_ids:
             messages = missive_client.extract_preview_content(conversation_id=conversation_id)
             normalized_address = extract_latest_address(messages, conversation_id, to_phone)
+
+            if not normalized_address:
+                extra_messages = extract_address_messages_from_supabase(to_phone)
+                normalized_address = extract_latest_address(
+                    messages=extra_messages, conversation_id=conversation_id, to_phone=to_phone
+                )
+
             if not normalized_address:
                 logger.error("Couldn't parse address from history messages", messages)
                 return (
