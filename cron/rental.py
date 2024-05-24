@@ -1,17 +1,17 @@
-import os
 from subprocess import PIPE, Popen
-
-import requests
-from apscheduler.schedulers.background import BlockingScheduler
 
 
 def fetch_data():
     try:
-        Popen(["./rental.sh"], shell=True, stdin=PIPE, stderr=PIPE)
+        process = Popen(["./cron/rental.sh"], shell=True, stdin=PIPE, stderr=PIPE)
+        stdout, stderr = process.communicate()
+        if stdout:
+            print("STDOUT:{}".format(stdout.decode()))
+        if stderr:
+            print("STDERR:{}".format(stderr.decode()))
     except Exception as e:
         print(e)
 
 
-scheduler = BlockingScheduler()
-scheduler.add_job(fetch_data, "interval", weeks=4)
-scheduler.start()
+if __name__ == "__main__":
+    fetch_data()

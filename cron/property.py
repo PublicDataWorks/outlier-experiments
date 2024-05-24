@@ -1,12 +1,10 @@
 import os
-import atexit
 import logging
 from subprocess import PIPE, Popen
 from zipfile import ZipFile
 
-from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import find_dotenv, load_dotenv
-from .sftp_client import SFTPServerClient
+from sftp_client import SFTPServerClient
 
 # Load environment variables
 load_dotenv(find_dotenv())
@@ -24,9 +22,11 @@ logger = logging.getLogger(__name__)
 
 def fetch_data():
     logger.info("Starting data fetch...")
+    logger.info(host + " " + username + " " + password)
     sftp_client = SFTPServerClient(host, port, username, password)
     try:
         sftp_client.connect()
+        os.makedirs('download', exist_ok=True)
         sftp_client.download_file(
             "/download/mi_wayne_detroit.sql.zip", "download/mi_wayne_detroit.sql.zip"
         )
@@ -38,7 +38,7 @@ def fetch_data():
             zip_ref.extractall(extracted_folder)
 
         try:
-            process = Popen(["./property.sh"], shell=True, stdin=PIPE, stderr=PIPE)
+            process = Popen(["./cron/property.sh"], shell=True, stdin=PIPE, stderr=PIPE)
             stdout, stderr = process.communicate()
             if stdout:
                 logger.info(f"Script output: {stdout.decode()}")
@@ -50,11 +50,5 @@ def fetch_data():
         logger.error("Error fetching data:", e)
 
 
-# Scheduler setup
-scheduler = BackgroundScheduler()
-
-
-def start_scheduler():
-    scheduler.start()
-    fetch_data()  # Run the job once when the server starts
-    atexit.register(lambda: scheduler.shutdown())
+if __name__ == "__main__":
+    fetch_data()

@@ -16,7 +16,6 @@ from configs.query_engine.tax_information import tax_query_engine
 from configs.query_engine.tax_information_without_sunit import (
     tax_query_engine_without_sunit,
 )
-from cron.property import start_scheduler
 from exceptions import APIException
 from libs.MissiveAPI import MissiveAPI
 from services.services import (
