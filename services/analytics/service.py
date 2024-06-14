@@ -20,6 +20,8 @@ from .utils import (
     generate_intro_section,
     generate_major_themes_section,
     generate_conversation_metrics_section,
+    format_weekly_report_data,
+    calculate_percentage_change,
     FetchDataResult,
 )
 from .queries import (
@@ -83,9 +85,9 @@ def get_weekly_broadcast_sent(session):
 
 
 def format_broadcast_details(broadcast):
-    run_at = broadcast['run_at']
-    first_message = broadcast['first_message']
-    second_message = broadcast['second_message']
+    run_at = broadcast["run_at"]
+    first_message = broadcast["first_message"]
+    second_message = broadcast["second_message"]
     run_at_formatted = run_at.strftime("%a %b %d, %Y at %I:%M%p ET")
 
     return f"""
@@ -103,11 +105,11 @@ def format_broadcast_details(broadcast):
 def get_weekly_messages_history(session, broadcast_sent):
     broadcast_messages = []
     for broadcast in broadcast_sent:
-        broadcast_messages.append(broadcast['first_message'])
-        broadcast_messages.append(broadcast['second_message'])
+        broadcast_messages.append(broadcast["first_message"])
+        broadcast_messages.append(broadcast["second_message"])
 
-    placeholders = ', '.join([f'${i + 1}' for i in range(len(broadcast_messages))])
-    params = {f'{i + 1}': msg for i, msg in enumerate(broadcast_messages)}
+    placeholders = ", ".join([f"${i + 1}" for i in range(len(broadcast_messages))])
+    params = {f"{i + 1}": msg for i, msg in enumerate(broadcast_messages)}
 
     query = text(f"""
         SELECT *
@@ -124,8 +126,8 @@ def get_weekly_messages_history(session, broadcast_sent):
 
     grouped_messages = defaultdict(list)
     for message in messages:
-        refs = message['references']
-        preview = message['preview']
+        refs = message["references"]
+        preview = message["preview"]
         grouped_messages[refs].append(preview)
 
     return grouped_messages
@@ -165,6 +167,31 @@ class AnalyticsService:
     def get_weekly_top_zip_code(self, session):
         return session.execute(GET_WEEKLY_TOP_ZIP_CODE).fetchall()
 
+    def fetch_data_last_week(self):
+        # Calculate the date of the last Monday
+        today = datetime.date.today()
+        last_monday = today - datetime.timedelta(days=today.weekday() + 7)
+
+        # Calculate the end date of the last Sunday
+        last_sunday = last_monday + datetime.timedelta(days=6)
+
+        # Convert to datetime for database query purposes
+        last_monday_start = datetime.datetime.combine(last_monday, datetime.time.min)
+        last_sunday_end = datetime.datetime.combine(last_sunday, datetime.time.max)
+
+        with self.Session() as session:
+            # Fetch data for the given week
+            data = (
+                session.query(WeeklyReport)
+                .filter(
+                    WeeklyReport.created_at >= last_monday_start,
+                    WeeklyReport.created_at <= last_sunday_end,
+                )
+                .first()
+            )
+
+        return format_weekly_report_data(data)
+
     def fetch_data(self):
         with self.Session() as session:
             # Fetch all the data here synchronously
@@ -190,7 +217,8 @@ class AnalyticsService:
             zip_codes,
         )
 
-    def insert_weekly_report(self,
+    def insert_weekly_report(
+        self,
         session,
         current_date,
         conversation_metrics,
@@ -235,10 +263,11 @@ class AnalyticsService:
         )
         session.add(new_report)
         session.commit()
-      
+
     def send_weekly_report(self):
         # Fetch the data synchronously
         data = self.fetch_data()
+        last_week_data = self.fetch_data_last_week()
 
         conversation_metrics = process_conversation_metrics(data)
         property_statuses = process_lookup_history(data["lookup_history"])
@@ -251,16 +280,31 @@ class AnalyticsService:
         intro_section = generate_intro_section()
         major_themes_section = generate_major_themes_section()
         zip_code_section = generate_geographic_region_markdown(data["zip_codes"])
-        conversation_metrics_section = generate_conversation_metrics_section(conversation_metrics)
-        lookup_history_section = generate_lookup_history_markdown(property_statuses)
+        conversation_metrics_section = generate_conversation_metrics_section(
+            conversation_metrics,
+            calculate_percentage_change(
+                last_week_data["conversation_metrics"], conversation_metrics
+            ),
+        )
+        lookup_history_section = generate_lookup_history_markdown(
+            property_statuses,
+            calculate_percentage_change(last_week_data["lookup_history"], property_statuses),
+        )
         conversation_outcomes_section = generate_conversation_outcomes_markdown(
-            conversations_outcomes
+            conversations_outcomes,
+            calculate_percentage_change(
+                last_week_data["conversation_outcomes"], conversations_outcomes
+            ),
         )
         replies_by_audience_segment_section = generate_data_by_audience_segment_markdown(
-            replies_by_audience_segment
+            replies_by_audience_segment,
+            calculate_percentage_change(last_week_data["replies"], replies_by_audience_segment),
         )
         unsubscribe_by_audience_segment_section = generate_data_by_audience_segment_markdown(
-            unsubscribes_by_audience_segment
+            unsubscribes_by_audience_segment,
+            calculate_percentage_change(
+                last_week_data["unsubscribed_messages"], unsubscribes_by_audience_segment
+            ),
         )
 
         markdown_report = [intro_section, major_themes_section, conversation_metrics_section]
