@@ -226,8 +226,8 @@ def generate_conversation_metrics_section(
 ):
     return (
         "### Conversation Metrics\n"
-        "| Metric                         | Count | Change |\n"
-        "|------------------------------- |-------|--------|\n"
+        "| Metric                         | Count | Change | Change (4-week avg) |\n"
+        "|------------------------------- |-------|--------|---------------------|\n"
         f"| Conversation Starters Sent     | {conversation_metrics['conversation_starters_sent']} |   {format_percentage_change( percentage_changes['conversation_starters_sent'] )} |   \n"
         f"| Broadcast replies              | {conversation_metrics['broadcast_replies']}  |   {format_percentage_change( percentage_changes['broadcast_replies'] )} | {format_percentage_change( percentage_changes_4_week['broadcast_replies'] )} |\n"
         f"| Text-ins                       | {conversation_metrics['text_ins']} |   {format_percentage_change( percentage_changes['text_ins'] )}| {format_percentage_change( percentage_changes_4_week['text_ins'] )} \n"
